@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Hafalan Santri Digital",
+  "description": "Platform manajemen setoran hafalan Al-Qur'an, evaluasi mutqin, target kurikulum, murajaah, dan pemantauan santri untuk pesantren, madrasah, dan rumah tahfiz.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

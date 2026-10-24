@@ -1,0 +1,225 @@
+{
+  "entities": {
+    "Institution": {
+      "title": "Institution",
+      "description": "Lembaga pendidikan Islam (Pondok Pesantren, Rumah Tahfiz, Madrasah, dsb.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "ID unik lembaga" },
+        "name": { "type": "string", "description": "Nama resmi lembaga", "minLength": 3, "maxLength": 150 },
+        "slug": { "type": "string", "description": "Slug url unik", "maxLength": 100 },
+        "type": { "type": "string", "enum": ["pesantren", "rumah_tahfiz", "sekolah_islam", "madrasah", "halaqah"] },
+        "address": { "type": "string", "maxLength": 300 },
+        "city": { "type": "string", "maxLength": 100 },
+        "province": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string", "maxLength": 150 },
+        "status": { "type": "string", "enum": ["pending", "active", "rejected", "suspended"] },
+        "subscriptionTier": { "type": "string", "enum": ["trial", "standard", "premium", "enterprise"] },
+        "logoUrl": { "type": "string", "maxLength": 500 },
+        "adminName": { "type": "string", "maxLength": 150 },
+        "adminEmail": { "type": "string", "maxLength": 150 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "slug", "type", "city", "province", "status"]
+    },
+    "Profile": {
+      "title": "Profile",
+      "description": "Profil pengguna universal dalam sistem",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "UID pengguna yang terikat ke Firebase Auth" },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "email": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "avatarUrl": { "type": "string", "maxLength": 500 },
+        "isSuperAdmin": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["fullName"]
+    },
+    "InstitutionMembership": {
+      "title": "InstitutionMembership",
+      "description": "Keanggotaan pengguna pada lembaga tertentu beserta role-nya",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "institutionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["institution_admin", "teacher", "guardian", "student"] },
+        "status": { "type": "string", "enum": ["active", "inactive", "suspended", "pending"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["institutionId", "userId", "role", "status"]
+    },
+    "InstitutionApplication": {
+      "title": "InstitutionApplication",
+      "description": "Formulir pendaftaran mandiri lembaga",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "applicantUserId": { "type": "string" },
+        "institutionName": { "type": "string", "maxLength": 150 },
+        "institutionType": { "type": "string", "enum": ["pesantren", "rumah_tahfiz", "sekolah_islam", "madrasah", "halaqah"] },
+        "leaderName": { "type": "string", "maxLength": 150 },
+        "email": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "city": { "type": "string", "maxLength": 100 },
+        "province": { "type": "string", "maxLength": 100 },
+        "address": { "type": "string", "maxLength": 300 },
+        "adminName": { "type": "string", "maxLength": 150 },
+        "adminEmail": { "type": "string", "maxLength": 150 },
+        "method": { "type": "string", "maxLength": 100 },
+        "estimatedStudents": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "reviewedBy": { "type": "string" },
+        "reviewNotes": { "type": "string", "maxLength": 500 },
+        "approvedInstitutionId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["institutionName", "institutionType", "leaderName", "email", "phone", "city", "province", "status"]
+    },
+    "InstitutionSetting": {
+      "title": "InstitutionSetting",
+      "description": "Pengaturan kurikulum dan ambang batas kelulusan lembaga",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "institutionId": { "type": "string" },
+        "targetMethod": { "type": "string", "maxLength": 100 },
+        "passingGradeTajwid": { "type": "number" },
+        "passingGradeKelancaran": { "type": "number" },
+        "passingGradeMakhraj": { "type": "number" },
+        "whatsappNotificationEnabled": { "type": "boolean" },
+        "allowParentView": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["institutionId", "targetMethod"]
+    },
+    "Halaqah": {
+      "title": "Halaqah",
+      "description": "Kelompok belajar / halaqah tahfiz di lembaga",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "institutionId": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "level": { "type": "string", "maxLength": 50 },
+        "schedule": { "type": "string", "maxLength": 100 },
+        "room": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["institutionId", "name"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Data santri terdaftar",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "institutionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "guardianUserId": { "type": "string" },
+        "halaqahId": { "type": "string" },
+        "nis": { "type": "string", "maxLength": 50 },
+        "fullName": { "type": "string", "maxLength": 150 },
+        "gender": { "type": "string", "enum": ["L", "P"] },
+        "guardianName": { "type": "string", "maxLength": 150 },
+        "guardianPhone": { "type": "string", "maxLength": 30 },
+        "targetJuz": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "leave", "graduated", "suspended"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["institutionId", "nis", "fullName", "gender", "status"]
+    },
+    "MemorizationRecord": {
+      "title": "MemorizationRecord",
+      "description": "Catatan setoran hafalan santri (ziyadah, murajaah, tasmi)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "institutionId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "type": { "type": "string", "enum": ["ziyadah", "murajaah", "tasmi"] },
+        "juz": { "type": "number" },
+        "surahStart": { "type": "string", "maxLength": 100 },
+        "ayahStart": { "type": "number" },
+        "surahEnd": { "type": "string", "maxLength": 100 },
+        "ayahEnd": { "type": "number" },
+        "pagesCount": { "type": "number" },
+        "grade": { "type": "string", "maxLength": 10 },
+        "scoreKelancaran": { "type": "number" },
+        "scoreTajwid": { "type": "number" },
+        "scoreMakhraj": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 500 },
+        "recordedAt": { "type": "string" }
+      },
+      "required": ["institutionId", "studentId", "teacherId", "type", "juz", "scoreKelancaran", "scoreTajwid", "scoreMakhraj"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Jejak audit seluruh perubahan status dan permohonan",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "institutionId": { "type": "string" },
+        "actorId": { "type": "string" },
+        "action": { "type": "string", "maxLength": 100 },
+        "entity": { "type": "string", "maxLength": 100 },
+        "entityId": { "type": "string", "maxLength": 100 },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["action", "entity"]
+    }
+  },
+  "firestore": {
+    "/institutions/{institutionId}": {
+      "schema": "Institution",
+      "description": "Dokumen lembaga pesantren, rumah tahfiz, madrasah"
+    },
+    "/institutions/{institutionId}/settings/{settingId}": {
+      "schema": "InstitutionSetting",
+      "description": "Konfigurasi kurikulum lembaga"
+    },
+    "/institutions/{institutionId}/memberships/{membershipId}": {
+      "schema": "InstitutionMembership",
+      "description": "Daftar hak akses dan peran anggota lembaga"
+    },
+    "/institutions/{institutionId}/halaqahs/{halaqahId}": {
+      "schema": "Halaqah",
+      "description": "Kelompok belajar / halaqah tahfiz"
+    },
+    "/institutions/{institutionId}/students/{studentId}": {
+      "schema": "Student",
+      "description": "Data santri dalam lembaga"
+    },
+    "/institutions/{institutionId}/memorization_records/{recordId}": {
+      "schema": "MemorizationRecord",
+      "description": "Catatan setoran santri"
+    },
+    "/institutions/{institutionId}/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Jejak audit khusus lembaga"
+    },
+    "/profiles/{userId}": {
+      "schema": "Profile",
+      "description": "Profil pengguna dan status Super Admin"
+    },
+    "/institution_applications/{applicationId}": {
+      "schema": "InstitutionApplication",
+      "description": "Permohonan pendaftaran lembaga mandiri"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Jejak audit global tingkat sistem"
+    }
+  }
+}

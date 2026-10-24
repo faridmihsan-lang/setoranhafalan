@@ -1,0 +1,203 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --------------------------------------------------------------------------
+    // GLOBAL SECURITY HELPERS
+    // --------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Super Admin: profile check
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'ponpestelagaalkautsar@gmail.com' ||
+        (exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.get('isSuperAdmin', false) == true)
+      );
+    }
+
+    // Check if user has specific membership role in institution
+    function hasInstitutionRole(instId, requiredRole) {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        exists(/databases/$(database)/documents/institutions/$(instId)/memberships/$(request.auth.uid + '_' + requiredRole)) ||
+        (exists(/databases/$(database)/documents/institutions/$(instId)/memberships/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/institutions/$(instId)/memberships/$(request.auth.uid)).data.role == requiredRole &&
+         get(/databases/$(database)/documents/institutions/$(instId)/memberships/$(request.auth.uid)).data.status == 'active')
+      );
+    }
+
+    function isInstitutionAdmin(instId) {
+      return hasInstitutionRole(instId, 'institution_admin');
+    }
+
+    function isTeacher(instId) {
+      return hasInstitutionRole(instId, 'teacher') || isInstitutionAdmin(instId);
+    }
+
+    function isInstitutionMember(instId) {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        exists(/databases/$(database)/documents/institutions/$(instId)/memberships/$(request.auth.uid))
+      );
+    }
+
+    // Institution Operational status check (Active vs Suspended)
+    function isInstitutionOperational(instId) {
+      return exists(/databases/$(database)/documents/institutions/$(instId)) &&
+        get(/databases/$(database)/documents/institutions/$(instId)).data.status == 'active';
+    }
+
+    // --------------------------------------------------------------------------
+    // 1. INSTITUTIONS
+    // --------------------------------------------------------------------------
+    match /institutions/{institutionId} {
+      allow get: if isSignedIn() && (isSuperAdmin() || isInstitutionMember(institutionId));
+      allow list: if isSignedIn();
+
+      // Only Super Admin can create or delete institutions
+      allow create: if isSuperAdmin() &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() <= 150 &&
+        request.resource.data.status in ['active', 'pending', 'suspended', 'rejected'];
+
+      // Update: Super Admin can update anything.
+      // Institution admin can only update non-governance fields (cannot change status or slug) and only if not suspended.
+      allow update: if isSignedIn() && (
+        isSuperAdmin() || (
+          isInstitutionAdmin(institutionId) &&
+          resource.data.status != 'suspended' &&
+          request.resource.data.status == resource.data.status &&
+          request.resource.data.slug == resource.data.slug &&
+          request.resource.data.name is string &&
+          request.resource.data.name.size() <= 150
+        )
+      );
+
+      allow delete: if isSuperAdmin();
+
+      // Subcollection: settings
+      match /settings/{settingId} {
+        allow read: if isSignedIn() && (isSuperAdmin() || isInstitutionMember(institutionId));
+        allow write: if isSuperAdmin() || (isInstitutionAdmin(institutionId) && isInstitutionOperational(institutionId));
+      }
+
+      // Subcollection: memberships
+      match /memberships/{membershipId} {
+        allow read: if isSignedIn() && (isSuperAdmin() || isInstitutionMember(institutionId));
+        allow write: if isSuperAdmin() || (isInstitutionAdmin(institutionId) && isInstitutionOperational(institutionId));
+      }
+
+      // Subcollection: halaqahs
+      match /halaqahs/{halaqahId} {
+        allow read: if isSignedIn() && (isSuperAdmin() || isInstitutionMember(institutionId));
+        allow write: if isSuperAdmin() || (isInstitutionAdmin(institutionId) && isInstitutionOperational(institutionId));
+      }
+
+      // Subcollection: students
+      match /students/{studentId} {
+        allow read: if isSignedIn() && (
+          isSuperAdmin() ||
+          isInstitutionMember(institutionId) ||
+          resource.data.guardianUserId == request.auth.uid ||
+          resource.data.userId == request.auth.uid
+        );
+        allow create, update, delete: if isSuperAdmin() || (
+          isInstitutionAdmin(institutionId) &&
+          isInstitutionOperational(institutionId)
+        );
+      }
+
+      // Subcollection: memorization_records (Setoran)
+      match /memorization_records/{recordId} {
+        allow read: if isSignedIn() && (
+          isSuperAdmin() ||
+          isInstitutionMember(institutionId) ||
+          resource.data.teacherId == request.auth.uid
+        );
+        allow create, update: if isSuperAdmin() || (
+          isTeacher(institutionId) &&
+          isInstitutionOperational(institutionId)
+        );
+        allow delete: if isSuperAdmin() || (
+          isInstitutionAdmin(institutionId) &&
+          isInstitutionOperational(institutionId)
+        );
+      }
+
+      // Subcollection: audit_logs
+      match /audit_logs/{logId} {
+        allow read: if isSuperAdmin() || isInstitutionAdmin(institutionId);
+        allow create: if isSignedIn();
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // 2. INSTITUTION APPLICATIONS (Public self-registration & Super Admin review)
+    // --------------------------------------------------------------------------
+    match /institution_applications/{applicationId} {
+      // Anyone can submit application, but initial status MUST be 'pending'
+      allow create: if request.resource.data.status == 'pending' &&
+        request.resource.data.institutionName is string &&
+        request.resource.data.institutionName.size() <= 150 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() <= 150;
+
+      // Super Admin reads all; applicant reads their own
+      allow get: if isSuperAdmin() || (isSignedIn() && resource.data.applicantUserId == request.auth.uid);
+      allow list: if isSuperAdmin() || isSignedIn();
+
+      // Only Super Admin can approve/reject applications
+      allow update: if isSuperAdmin() &&
+        request.resource.data.status in ['pending', 'approved', 'rejected'];
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // --------------------------------------------------------------------------
+    // 3. PROFILES
+    // --------------------------------------------------------------------------
+    match /profiles/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+
+      // Profile creation
+      allow create: if isSignedIn() && (
+        request.auth.uid == userId || isSuperAdmin()
+      ) && (
+        // Non-super-admins cannot set isSuperAdmin to true
+        isSuperAdmin() || request.resource.data.get('isSuperAdmin', false) == false
+      );
+
+      // Profile update: user can update their name/phone, but CANNOT self-escalate isSuperAdmin
+      allow update: if isSignedIn() && (
+        isSuperAdmin() || (
+          request.auth.uid == userId &&
+          request.resource.data.get('isSuperAdmin', false) == resource.data.get('isSuperAdmin', false)
+        )
+      );
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // --------------------------------------------------------------------------
+    // 4. GLOBAL AUDIT LOGS
+    // --------------------------------------------------------------------------
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false; // Immutable audit logs
+    }
+  }
+}
